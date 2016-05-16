@@ -34,9 +34,16 @@ GCD编程的核心就是dispatch队列，dispatch block的执行最终都会放�
     
     //block具体代码
     
-    }); 
+    });
+    
+**一次性执行**  
 
-同步执行block，函数不返回，一直等到block执行完毕。编译器会根据实际情况优化代码，所以有时候你会发现block其实还在当前线程上执行，并没用产生新线程。  
+	static dispatch_once_t onceToken;
+	dispatch_once(&onceToken,^{
+	//do something
+	});
+
+其中同步执行block，函数不返回，一直等到block执行完毕。编译器会根据实际情况优化代码，所以有时候你会发现block其实还在当前线程上执行，并没用产生新线程。    
 
 实际编程经验告诉我们，尽可能避免使用dispatch_sync，嵌套使用时还容易引起程序死锁。  
 
@@ -100,7 +107,7 @@ dispatch队列是线程安全的，可以利用串行队列实现锁的功能。
     
     } 
 
-下一次调用writeDB:必须等到上次调用完成后才能进行，保证writeDB:方法是线程安全的。  
+下一次调用writeDB:必须等到上次调用完成后才能进行，保证writeDB:方法是线程安全的。    
 
 **dispatch队列还实现其它一些常用函数，包括：**  
 
@@ -134,7 +141,20 @@ dispatch队列是线程安全的，可以利用串行队列实现锁的功能。
 
 则只会暂停dispatchA上原来的block的执行，dispatchB的block则不受影响。而如果暂停dispatchB的运行，则会暂停dispatchA的运行。  
 
-这里只简单举个例子，说明dispatch队列运行的灵活性，在实际应用中你会逐步发掘出它的潜力。  
+这里只简单举个例子，说明dispatch队列运行的灵活性，在实际应用中你会逐步发掘出它的潜力。    
+
+另外，GCD还有一些高级用法，例如让后台两个线程并行执行，然后等到两个线程都处理完成后，再总会执行结果。这个可以用dispatch_group、dispatch_group_async和dispatch_group_notify来实现，示例如下：  
+
+	dispathc_group_t group = dispatch_group_create();
+	dispathc_group_async(group,dispatch_get_global_queue(0,0),^{
+		//并行执行的线程一
+	});
+	dispatch_group_async(group,dispatch_get_global_queue(0,0),^{
+		//并行执行的线程二
+	});
+	dispatch_group_notify(group,dispatch_get_global_queue(0,0)^{
+		//总会结果
+	});
 
 ## NSThread
 #### 一、NSthread的初始化  
@@ -185,7 +205,7 @@ dispatch队列是线程安全的，可以利用串行队列实现锁的功能。
 a、 自定义子类继承NSOperation，实现内部相应的方法   
 b、NSBlockOperation  
 c、 NSInvocationOperation   
-##### 2、NSOperation
+##### 1、NSOperation
 1、NSOperation可以用来封装并发或非并发的操作  
 
  2、对于非并发的操作可以直接重写main方法（main方法里不开启多线程），这时候如果调用start方法，那么main里面的代码是同步执行的即会阻塞主线程。但是如果加入到 queue 中的话，queue会为没个operation分配一个线程，此时是异步执行的不会阻塞主线程。  
@@ -200,14 +220,14 @@ c、 NSInvocationOperation
                                      forMode:NSRunLoopCommonModes];
           [self.connection start];
         });
-或者这样参考AF的写法：  
+或者这样参考AF的写法：   
+
     - (void)start {
         [self.lock lock];
         if ([self isCancelled]) {
             [self performSelector:@selector(cancelConnection) onThread:[[self class] networkRequestThread] withObject:nil waitUntilDone:NO modes:[self.runLoopModes allObjects]];
         } else if ([self isReady]) {
             self.state = AFOperationExecutingState;
-    
             [self performSelector:@selector(operationDidStart) onThread:[[self class] networkRequestThread] withObject:nil waitUntilDone:NO modes:[self.runLoopModes allObjects]];
         }
         [self.lock unlock];
