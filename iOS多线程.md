@@ -125,7 +125,31 @@ dispatch队列是线程安全的，可以利用串行队列实现锁的功能。
 
     void dispatch_after( dispatch_time_t when, dispatch_queue_t queue,  dispatch_block_t block); 
 
-延迟执行block。  
+延迟执行block。指的就是将一个Block在特定的延时以后，加入到指定的队列中，不是在特定的时间后立即运行！。  
+看看如下代码示例： 
+
+	//创建串行队列
+	dispatch_queue_t queue = dispatch_queue_create("me.tutuge.test.gcd", DISPATCH_QUEUE_CONCURRENT);
+	//立即打印一条信息        
+	NSLog(@"Begin add block...");        
+	//提交一个block
+	dispatch_async(queue, ^{
+	    //Sleep 10秒
+	    [NSThread sleepForTimeInterval:10];
+	    NSLog(@"First block done...");
+	});        
+	//5 秒以后提交block
+	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)), queue, ^{
+	    NSLog(@"After...");
+	});  
+
+输出结果如下：    
+	2015-03-31 20:57:27.122 GCDTest[45633:1812016] Begin add block...
+	2015-03-31 20:57:37.127 GCDTest[45633:1812041] First block done...
+	2015-03-31 20:57:37.127 GCDTest[45633:1812041] After...
+
+从结果也验证了，dispatch_after只是延时提交block，并不是延时后立即执行。所以想用dispatch_after精确控制运行状态的朋友可要注意了~
+
 
 **最后再来看看dispatch队列的一个很有特色的函数：**  
 
